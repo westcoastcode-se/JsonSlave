@@ -21,18 +21,19 @@ DiskJsonStorage::~DiskJsonStorage() {
 }
 
 string DiskJsonStorage::Get(const string& key, const string& defaultVal) {
-	lock_guard<mutex> l(mMutex);
 	const auto path = SecurePath(key);
 	string result;
+
+	lock_guard<mutex> l(mMutex);
 	_Get(&result, key, path, defaultVal);
 	return result;
 }
 
 string DiskJsonStorage::Add(const string& key, const string& content) {
-	lock_guard<mutex> l(mMutex);
 	const auto path = SecurePath(key);
 
 	// Read the old value if one exists
+	lock_guard<mutex> l(mMutex);
 	string oldValue;
 	_Get(&oldValue, key, path, StringUtils::Empty);
 
@@ -48,10 +49,10 @@ string DiskJsonStorage::Add(const string& key, const string& content) {
 }
 
 string DiskJsonStorage::Remove(const string& key) {
-	lock_guard<mutex> l(mMutex);
 	const auto path = SecurePath(key);
 
 	// Read the old value if one exists. If no value can be found then assume that we cannot remove it
+	lock_guard<mutex> l(mMutex);
 	string oldValue;
 	_Get(&oldValue, key, path, StringUtils::Empty);
 	if (oldValue.empty())

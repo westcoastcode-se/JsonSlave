@@ -6,7 +6,7 @@
 #include "PathUtils.hpp"
 
 #if defined(_WIN32)
-
+#include <io.h>
 const string PathUtils::Delimiter("\\");
 
 #else
@@ -18,8 +18,11 @@ const string PathUtils::Delimiter("/");
 #endif
 
 bool PathUtils::CreateDirectory(string path) {
-	bool success;
+#if defined(_WIN32)
+	int result = ::mkdir(path.c_str());
+#else
 	int result = ::mkdir(path.c_str(), 0775);
+#endif
 	if (result == -1) {
 		if (errno != EEXIST)
 			return false;

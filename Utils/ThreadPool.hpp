@@ -16,6 +16,11 @@ public:
 	~ThreadPool();
 
 	/**
+	 * Stop the thread pool
+	 */
+	void Stop();
+
+	/**
 	 * Add a new job to be executed by the thread pool
 	 *
 	 * @tparam Func
@@ -49,11 +54,7 @@ ThreadPool::ThreadPool(int count) : mRunning(true) {
 }
 
 ThreadPool::~ThreadPool() {
-	mRunning = false;
-	mTrigger.notify_all();
-	for (auto&& worker : mWorkers) {
-		worker.join();
-	}
+	Stop();
 }
 
 template<class Func>
@@ -62,6 +63,15 @@ void ThreadPool::AddJob(Func&& f) {
 	auto futureResult = task->get_future();
 	AddTask(task);
 	mTrigger.notify_one();
+}
+
+void ThreadPool::Stop() {
+	cout << "Shutting down connection pool" << endl;
+	mRunning = false;
+	mTrigger.notify_all();
+	for (auto&& worker : mWorkers) {
+		worker.join();
+	}
 }
 
 void ThreadPool::ProcessWorker() {
@@ -87,5 +97,6 @@ void ThreadPool::AddTask(shared_ptr<packaged_task<void()>> task) {
 		throw runtime_error("Cannot add tasks when the ThreadPool is not running anymore");
 	mTasks.emplace([task]() { (*task)(); });
 }
+
 
 #endif //JSONSLAVE_THREADPOOL_HPP

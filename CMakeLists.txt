@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 11)
 # Network Libraries
 if (WIN32)
     if (MINGW)
-        set(SOCK_LIBRARIES "wsock32 -lws2_32")
+        set(SOCK_LIBRARIES "wsock32 -lws2_32 -static-libgcc -static-libstdc++ -static -lpthread")
     else ()
         set(SOCK_LIBRARIES "ws2_32")
     endif ()

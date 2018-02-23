@@ -6,13 +6,13 @@
 
 namespace
 {
-	bool running = true;
+	atomic_bool running(true);
 	IJsonStorage* storage;
 }
 
 void SendResponse(shared_ptr<TcpSocketStream> stream, int statusCode, const string& data) {
 	stream->WriteLineFormatted("HTTP/1.1 %d %s", statusCode, HttpStatus::CodeToString(statusCode).c_str());
-	stream->WriteLine("Server: WebJsonStore " SERVER_VERSION);
+	stream->WriteLine("Server: JsonSlave " SERVER_VERSION);
 	stream->WriteLine("Connection: Closed");
 	stream->WriteLine("Content-Type: application/json");
 	stream->WriteLineFormatted("Content-Length: %d", data.length());
@@ -103,6 +103,7 @@ int main(int argc, char** argv) {
 				pool.AddJob([client]() { ClientThread(client); });
 			}
 		}
+		pool.Stop();
 		delete socket;
 	} catch (runtime_error& e) {
 		cout << e.what() << endl;

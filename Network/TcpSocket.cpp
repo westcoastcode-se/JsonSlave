@@ -5,6 +5,16 @@
 
 #include "TcpSocket.hpp"
 
+#if defined(_WIN32)
+#   ifdef _WIN32_WINNT
+#       undef _WIN32_WINNT
+#       define _WIN32_WINNT 0x0600
+#   endif
+
+#   include <Ws2tcpip.h>
+
+#endif
+
 namespace
 {
 #ifdef _WIN32
@@ -50,7 +60,7 @@ namespace
 	string GetSocketAddress(SOCKET socket) {
 		socklen_t len;
 		struct sockaddr_storage addr;
-		char ipstr[INET6_ADDRSTRLEN];
+		char ipstr[256];
 
 		len = sizeof addr;
 		getpeername(socket, (struct sockaddr*) &addr, &len);
@@ -100,16 +110,30 @@ TcpSocket::~TcpSocket() {
 }
 
 TcpSocket* TcpSocket::Accept() {
-	sockaddr_in addrin;
-	memset((void*) &addrin, 0, sizeof(addrin));
-	socklen_t addrinLen = sizeof(addrin);
-	SOCKET s = ::accept(mSocket, (sockaddr*) &addrin, &addrinLen);
-	if (s < 0) {
-		return nullptr;
+	timeval tv;
+	tv.tv_sec = 5;
+	tv.tv_usec = 0;
+
+	fd_set fd;
+	FD_ZERO(&fd);
+	FD_SET(mSocket, &fd);
+
+	u_long nbio = 1;
+	::ioctlsocket(mSocket, FIONBIO, &nbio);
+	if (select(0, &fd, NULL, NULL, &tv) > 0) {
+		sockaddr_in addrin;
+		memset((void*) &addrin, 0, sizeof(addrin));
+		socklen_t addrinLen = sizeof(addrin);
+		SOCKET s = ::accept(mSocket, (sockaddr*) &addrin, &addrinLen);
+		if (s < 0) {
+			return nullptr;
+		}
+
+		IncreaseAndInit();
+		return new TcpSocket(s, GetSocketAddress(s));
 	}
 
-	IncreaseAndInit();
-	return new TcpSocket(s, GetSocketAddress(s));
+	return nullptr;
 }
 
 shared_ptr<TcpSocketStream> TcpSocket::OpenStream() {

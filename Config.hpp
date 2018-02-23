@@ -26,6 +26,7 @@
 #include <memory>
 #include <thread>
 #include <mutex>
+#include <cstdarg>
 
 using namespace std;
 
