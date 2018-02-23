@@ -124,7 +124,6 @@ TcpSocket::~TcpSocket() {
 	}
 
 	DecreaseAndRelease();
-	cout << "Shutting down client " << mAddress.c_str() << endl;
 }
 
 TcpSocket* TcpSocket::Accept() {
