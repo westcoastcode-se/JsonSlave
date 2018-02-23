@@ -100,15 +100,18 @@ int main(int argc, char** argv) {
 		while (running) {
 			TcpSocket* client = socket->Accept();
 			if (client != nullptr) {
-				pool.AddJob([client]() { ClientThread(client); });
+				pool.Execute([client]() { ClientThread(client); });
 			}
 		}
-		pool.Stop();
+		//pool.Stop();
 		delete socket;
 	} catch (runtime_error& e) {
 		cout << e.what() << endl;
 	}
 
+	cout << "Removing storage" << endl;
 	delete storage;
+	storage = nullptr;
+	cout << "Storage removed" << endl;
 	return 0;
 }

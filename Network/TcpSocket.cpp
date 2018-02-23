@@ -3,6 +3,7 @@
 // Copyright (c) 2018 West Coast Code AB. All rights reserved.
 //
 
+#include <iostream>
 #include "TcpSocket.hpp"
 
 #if defined(_WIN32)
@@ -107,6 +108,7 @@ TcpSocket::~TcpSocket() {
 	}
 
 	DecreaseAndRelease();
+	cout << "Shutting down client " << mAddress.c_str() << endl;
 }
 
 TcpSocket* TcpSocket::Accept() {
@@ -118,8 +120,6 @@ TcpSocket* TcpSocket::Accept() {
 	FD_ZERO(&fd);
 	FD_SET(mSocket, &fd);
 
-	u_long nbio = 1;
-	::ioctlsocket(mSocket, FIONBIO, &nbio);
 	if (select(0, &fd, NULL, NULL, &tv) > 0) {
 		sockaddr_in addrin;
 		memset((void*) &addrin, 0, sizeof(addrin));
@@ -130,6 +130,11 @@ TcpSocket* TcpSocket::Accept() {
 		}
 
 		IncreaseAndInit();
+
+		// Make the client socket blocking
+		u_long nbio = 0;
+		::ioctlsocket(s, FIONBIO, &nbio);
+
 		return new TcpSocket(s, GetSocketAddress(s));
 	}
 
@@ -174,6 +179,10 @@ TcpSocket* TcpSocket::Listen(uint16_t port) {
 		ss << "Failed to listen for incoming connections on port " << port;
 		throw runtime_error(ss.str());
 	}
+
+	// Make the server-accept socket non-blocking
+	u_long nbio = 1;
+	::ioctlsocket(serverSocket, FIONBIO, &nbio);
 
 	return new TcpSocket(serverSocket, string("0.0.0.0"));
 }

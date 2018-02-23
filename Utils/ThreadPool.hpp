@@ -1,102 +1,91 @@
-//
-// Created by Per Andersson on 2018-02-23.
-// Copyright (c) 2018 West Coast Code AB. All rights reserved.
-//
-
 #ifndef JSONSLAVE_THREADPOOL_HPP
 #define JSONSLAVE_THREADPOOL_HPP
 
 #include "../Config.hpp"
 
+#include <vector>
+#include <queue>
+#include <memory>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <future>
+#include <functional>
+#include <stdexcept>
+
+/**
+ * Based on https://github.com/progschj/ThreadPool/blob/master/ThreadPool.h
+ */
 class ThreadPool
 {
 public:
-	explicit ThreadPool(int count);
+	explicit ThreadPool(size_t threads);
 
 	~ThreadPool();
 
-	/**
-	 * Stop the thread pool
-	 */
-	void Stop();
-
-	/**
-	 * Add a new job to be executed by the thread pool
-	 *
-	 * @tparam Func
-	 * @param f
-	 */
-	template<class Func>
-	void AddJob(Func&& f);
-
-private:
-	void ProcessWorker();
-
-	void AddTask(shared_ptr<packaged_task<void()>> task);
+	template<class F>
+	future<void> Execute(F&& f);
 
 private:
 	vector<thread> mWorkers;
 	queue<function<void()>> mTasks;
 	mutex mMutex;
-	condition_variable mTrigger;
-	atomic_bool mRunning;
-
+	condition_variable mCondition;
+	bool mStopped;
 };
 
-ThreadPool::ThreadPool(int count) : mRunning(true) {
-	for (int i = 0; i < count; ++i) {
+// the constructor just launches some amount of workers
+inline ThreadPool::ThreadPool(size_t threads)
+		: mStopped(false) {
+	for (size_t i = 0; i < threads; ++i)
 		mWorkers.emplace_back(
-				[this]() -> void {
-					this->ProcessWorker();
+				[this] {
+					while (true) {
+						function<void()> task;
+
+						{
+							unique_lock<std::mutex> lock(this->mMutex);
+							this->mCondition.wait(lock,
+							                      [this] { return this->mStopped || !this->mTasks.empty(); });
+							if (this->mStopped && this->mTasks.empty())
+								return;
+							task = std::move(this->mTasks.front());
+							this->mTasks.pop();
+						}
+
+						task();
+					}
 				}
 		);
+}
+
+template<class F>
+future<void> ThreadPool::Execute(F&& f) {
+	auto task = make_shared<std::packaged_task<void()>>(bind(f));
+
+	future<void> res = task->get_future();
+	{
+		unique_lock<std::mutex> lock(mMutex);
+
+		// don't allow enqueueing after stopping the pool
+		if (mStopped)
+			throw runtime_error("Cannot add tasks on a stopped ThreadPool");
+
+		mTasks.emplace([task]() { (*task)(); });
 	}
+	mCondition.notify_one();
+	return res;
 }
 
-ThreadPool::~ThreadPool() {
-	Stop();
-}
-
-template<class Func>
-void ThreadPool::AddJob(Func&& f) {
-	auto task = std::make_shared<std::packaged_task<void()>>(std::bind(std::forward<Func>(f)));
-	auto futureResult = task->get_future();
-	AddTask(task);
-	mTrigger.notify_one();
-}
-
-void ThreadPool::Stop() {
-	cout << "Shutting down connection pool" << endl;
-	mRunning = false;
-	mTrigger.notify_all();
-	for (auto&& worker : mWorkers) {
+// the destructor joins all threads
+inline ThreadPool::~ThreadPool() {
+	{
+		unique_lock<std::mutex> lock(mMutex);
+		mStopped = true;
+	}
+	mCondition.notify_all();
+	for (thread& worker: mWorkers)
 		worker.join();
-	}
 }
-
-void ThreadPool::ProcessWorker() {
-	while (true) {
-		function<void()> task;
-		{
-			unique_lock<mutex> l(mMutex);
-			mTrigger.wait(l, [this] {
-				return !mRunning || !mTasks.empty();
-			});
-			if (!mRunning && mTasks.empty())
-				return;
-			task = move(mTasks.front());
-			mTasks.pop();
-		}
-		task();
-	}
-}
-
-void ThreadPool::AddTask(shared_ptr<packaged_task<void()>> task) {
-	unique_lock<mutex> l(mMutex);
-	if (!mRunning)
-		throw runtime_error("Cannot add tasks when the ThreadPool is not running anymore");
-	mTasks.emplace([task]() { (*task)(); });
-}
-
 
 #endif //JSONSLAVE_THREADPOOL_HPP
