@@ -141,7 +141,7 @@ TcpSocket* TcpSocket::Accept() {
 		memset((void*) &addrin, 0, sizeof(addrin));
 		socklen_t addrinLen = sizeof(addrin);
 		SOCKET s = ::accept(mSocket, (sockaddr*) &addrin, &addrinLen);
-		if (s < 0) {
+		if (s == INVALID_SOCKET) {
 			return nullptr;
 		}
 
