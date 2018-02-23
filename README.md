@@ -57,7 +57,7 @@ If the item already exist, then the previous value will be returned to the clien
 You can also delete json entries by sending a DELETE request to the server. For example:
 
 ```bash
-curl http://127.0.0.1:8080/players/john_doe -XPUT -d '{"name":"John Doe"}'
+curl http://127.0.0.1:8080/players/john_doe -XDELETE
 ```
 
 If the JSON entry exist then a **200** is returned with the removed content. Otherwise a **404** will be returned.
