@@ -76,6 +76,22 @@ namespace
 
 		return string(ipstr);
 	}
+
+	void SocketSetBlocking(SOCKET socket, bool blocking) {
+#if defined(_WIN32)
+		u_long block = blocking ? 0 : 1;
+		ioctlsocket(socket, FIONBIO, &block);
+#else
+		const auto ctl = fcntl(socket, F_GETFL);
+		int command = ctl;
+		if (!blocking) {
+			command = command | O_NONBLOCK;
+		} else {
+			command = command & ~O_NONBLOCK;
+		}
+		fcntl(socket, F_SETFL, command);
+#endif
+	}
 }
 
 TcpSocket::TcpSocket(SOCKET socket, const string& address)
@@ -116,11 +132,11 @@ TcpSocket* TcpSocket::Accept() {
 	tv.tv_sec = 5;
 	tv.tv_usec = 0;
 
-	fd_set fd;
-	FD_ZERO(&fd);
-	FD_SET(mSocket, &fd);
+	fd_set read_set;
+	FD_ZERO(&read_set);
+	FD_SET(mSocket, &read_set);
 
-	if (select(0, &fd, NULL, NULL, &tv) > 0) {
+	if (select(mSocket + 1, &read_set, NULL, NULL, &tv) > 0) {
 		sockaddr_in addrin;
 		memset((void*) &addrin, 0, sizeof(addrin));
 		socklen_t addrinLen = sizeof(addrin);
@@ -130,10 +146,8 @@ TcpSocket* TcpSocket::Accept() {
 		}
 
 		IncreaseAndInit();
-
 		// Make the client socket blocking
-		u_long nbio = 0;
-		::ioctlsocket(s, FIONBIO, &nbio);
+		SocketSetBlocking(s, true);
 
 		return new TcpSocket(s, GetSocketAddress(s));
 	}
@@ -181,8 +195,7 @@ TcpSocket* TcpSocket::Listen(uint16_t port) {
 	}
 
 	// Make the server-accept socket non-blocking
-	u_long nbio = 1;
-	::ioctlsocket(serverSocket, FIONBIO, &nbio);
+	SocketSetBlocking(serverSocket, false);
 
 	return new TcpSocket(serverSocket, string("0.0.0.0"));
 }
