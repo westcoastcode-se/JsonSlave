@@ -30,6 +30,6 @@
 
 using namespace std;
 
-#define SERVER_VERSION "1.0.0"
+#define SERVER_VERSION "1.0.1"
 
 #endif //JSONSLAVE_CONFIG_HPP

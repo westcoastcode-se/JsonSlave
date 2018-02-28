@@ -45,6 +45,8 @@ public:
 
 	void Write(const string& str);
 
+	void Write(const char* bytes, int length);
+
 private:
 	SOCKET mSocket;
 };

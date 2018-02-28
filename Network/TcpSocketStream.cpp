@@ -31,11 +31,11 @@ string TcpSocketStream::ReadLine() {
 void TcpSocketStream::WriteLineFormatted(const char* s, ...) {
 	va_list arglist;
 	va_start(arglist, s);
-	string tmp;
-	tmp.resize(1024);
-	vsnprintf((char*) tmp.c_str(), 1024, s, arglist);
+	char tmp[1024];
+	int count = vsnprintf(tmp, 1024, s, arglist);
 	va_end(arglist);
-	WriteLine(tmp);
+	Write(tmp, count);
+	WriteLine();
 }
 
 void TcpSocketStream::WriteLine(const string& str) {
@@ -50,6 +50,10 @@ void TcpSocketStream::WriteLine() {
 
 void TcpSocketStream::Write(const string& str) {
 	send(mSocket, str.c_str(), str.length(), 0);
+}
+
+void TcpSocketStream::Write(const char* bytes, int length) {
+	send(mSocket, bytes, length, 0);
 }
 
 string TcpSocketStream::Read(int length) {
